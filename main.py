@@ -18,8 +18,8 @@ import argparse
 
 '''3D reconstruction from 2 images'''
 #Load images
-path1 = "/Users/kyo/Documents/projects/CVision/SfM/IMG_4015.JPG"
-path2 = "/Users/kyo/Documents/projects/CVision/SfM/IMG_4016.JPG"
+path1 = "/Users/kyo/Documents/projects/CVision/SfM/ball1.JPG"
+path2 = "/Users/kyo/Documents/projects/CVision/SfM/ball2.JPG"
 img1 = cv.imread(path1)
 img2 = cv.imread(path2)
 #cv.imshow("Image 1", img1)
@@ -263,6 +263,11 @@ pcd.colors = o3d.utility.Vector3dVector(colors)
 
 pcd.points = o3d.utility.Vector3dVector(points_3d.T)
 
+#Test
+#z = points_3d[2]
+#print("min z:", np.min(z))
+#print("max z:", np.max(z))
+
 #Save Point cloud
 o3d.io.write_point_cloud("/Users/kyo/Documents/projects/CVision/SfM/point_cloud/output.ply", pcd)
 
@@ -270,3 +275,16 @@ o3d.visualization.draw_geometries([pcd])
 
 
 #Surface reconstruction
+#Normals estimation
+pcd.estimate_normals(
+    search_param=o3d.geometry.KDTreeSearchParamHybrid(
+        radius=0.05,
+        max_nn=30
+    )
+)
+#Poisson reconstruction
+mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+    pcd, depth=8
+)
+
+o3d.visualization.draw_geometries([mesh])
