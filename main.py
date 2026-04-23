@@ -14,11 +14,14 @@ import numpy as np
 import open3d as o3d
 from cam_calibration import *
 from help import draw_lines
+import argparse
 
 '''3D reconstruction from 2 images'''
 #Load images
-img1 = cv.imread("/Users/kyo/Documents/projects/CVision/SfM/nz1.JPG")
-img2 = cv.imread("/Users/kyo/Documents/projects/CVision/SfM/nz2.JPG")
+path1 = "/Users/kyo/Documents/projects/CVision/SfM/IMG_4015.JPG"
+path2 = "/Users/kyo/Documents/projects/CVision/SfM/IMG_4016.JPG"
+img1 = cv.imread(path1)
+img2 = cv.imread(path2)
 #cv.imshow("Image 1", img1)
 #cv.waitKey(0)
 #cv.destroyAllWindows()
@@ -40,7 +43,20 @@ cv.imshow("Image 2", gray2)
 cv.waitKey(0)
 cv.destroyAllWindows() '''
 
-if sys.argv[1] == "calibrate" and sys.argv[2] == "opti_matrix":
+parser = argparse.ArgumentParser(
+    prog='main',
+    description="camera calibration, keypoints matching, and 3D point cloud",
+    epilog="use -c to calibrate camera,\n then use -o to exploit Optimal \
+    matrix to correct distorsion"
+)
+
+#parser.add_argument('filename')
+parser.add_argument('-c', "--calibrate", action='store_true', help="Calibrate camera")
+parser.add_argument('-o', "--optimal", action='store_true', help="Use Optimal matrix to undistort camera")
+args = parser.parse_args()
+
+if args.calibrate and args.optimal:
+    print("Calibrate camera and use Optimal matrix")
     # Camera calibration using opencv
     # https://modernrobotics.northwestern.edu/nu-gm-book-resource/3-3-1-homogeneous-transformation-matrices/
     # let's find K matrix
@@ -50,20 +66,22 @@ if sys.argv[1] == "calibrate" and sys.argv[2] == "opti_matrix":
 
     #distorsion correction
     # https://csundergrad.science.uoit.ca/courses/cv-notes/notebooks/02-camera-calibration.html
-    newimg = cv.imread("/Users/kyo/Documents/projects/CVision/SfM/nz1.JPG")
+    newimg = cv.imread(path1)
     h, w = newimg.shape[:2]
     
     ######################################################
     ##VERIFY UNDISTORTION##
     # Original Image 
     img_orig1 = img1.copy()
+    img1_undist = np.zeros_like(img1)
+    img2_undist = np.zeros_like(img2)
     ######################################################
     #With alpha = 1, trying to keep the whole content in the image
     #-> alpha = 0; zoom + crop to keep only valid pixels  
     newcameramtx, roi = cv.getOptimalNewCameraMatrix(K, dist_coeff, (w, h), 0, (w, h))
     #using new camera matrix to undistort image
-    img1_undist = cv.undistort(img1, K, dist_coeff, None, newcameramtx)
-    img2_undist = cv.undistort(img2, K, dist_coeff, None, newcameramtx)
+    img1_undist = cv.undistort(img1.copy(), K, dist_coeff, None, newcameramtx)
+    img2_undist = cv.undistort(img2.copy(), K, dist_coeff, None, newcameramtx)
     
     # crop the image
     x, y, w, h = roi
@@ -88,11 +106,11 @@ if sys.argv[1] == "calibrate" and sys.argv[2] == "opti_matrix":
 
 
     
-elif sys.argv[1] == "calibrate":
+elif args.calibrate:
     # Camera calibration using opencv
     # https://modernrobotics.northwestern.edu/nu-gm-book-resource/3-3-1-homogeneous-transformation-matrices/
     # let's find K matrix
-    ret, K, dist_coeff, R_vecs, T_vecs = calib(showPix=False) #mtx = K
+    ret, K, dist_coeff, R_vecs, T_vecs = calib(showPix=True) #mtx = K
     #verify quality
     print("Erreur reprojection :", ret) # retg -> 0
 
@@ -169,7 +187,7 @@ for m, n in matcher_sift_knn:
 print(len(good_matches))
 #Draw matches and display 
 img_matches_sift = cv.drawMatches(gray1_undist, kp1_sift, gray2_undist, kp2_sift, 
-                             good_matches[:200], None, matchColor=(0, 0, 255),)
+                             good_matches[:800], None, matchColor=(0, 0, 255),)
 img_matches_sift = cv.resize(img_matches_sift, (1920, 1920))
 print(f"Matches points SIFT: {len(matcher_sift_knn)}")
 
@@ -179,12 +197,14 @@ cv.destroyAllWindows()
 '''Analyse: SIFT descriptor finds more keypoints'''
 
 #Extract matches points from OBR
-best1 = np.float32([kp1[m.queryIdx].pt for m in matches])
-best2 = np.float32([kp2[m.trainIdx].pt for m in matches])
+#print("Using OBR descriptor")
+#best1 = np.float32([kp1[m.queryIdx].pt for m in matches])
+#best2 = np.float32([kp2[m.trainIdx].pt for m in matches])
 
 #Extract matches points from SIFT
-#best1 = np.float32([kp1_sift[m.queryIdx].pt for m in matches_sift])
-#best2 = np.float32([kp2_sift[m.trainIdx].pt for m in matches_sift])
+print("Using SIFT descriptor")
+best1 = np.float32([kp1_sift[m.queryIdx].pt for m in good_matches])
+best2 = np.float32([kp2_sift[m.trainIdx].pt for m in good_matches])
 #print(f"The points: {best1} // {best2}")
 
 '''
@@ -203,6 +223,11 @@ E, mask = cv.findEssentialMat(best1, best2, K, method=cv.RANSAC)
 _, R, t, mask = cv.recoverPose(E, best1, best2, K)'''
  #Essential matrix
 E, mask = cv.findEssentialMat(best1, best2, K, method=cv.RANSAC)
+########################################
+#Clean point cloud
+best1 = best1[mask.ravel() == 1]
+best2 = best2[mask.ravel() == 1]
+########################################
 
 #Recover camero pose
 _, R, t, mask = cv.recoverPose(E, best1, best2, K)  #pose of cam1 wrt cam2
@@ -218,11 +243,30 @@ proj2 = K @ proj2 # proj1 = K @ [I | 0]
 
 points_4d = cv.triangulatePoints(proj1, proj2, best1.T, best2.T)
 points_3d = points_4d[:3] / points_4d[3]
+########################################
+z = points_3d[2]
+valid = z > 0 #in front of the camera
+
+points_3d = points_3d[:, valid]
+########################################
 
 #print(points_4d)
 #3D visualization using Open3D 
 pcd = o3d.geometry.PointCloud()
+#Open3D filter
+pcd, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=2.0)
+colors = []
+for pt in best1:
+    x, y = int(pt[0]), int(pt[1])
+    colors.append(img1[y, x] / 255.0)
+pcd.colors = o3d.utility.Vector3dVector(colors)
+
 pcd.points = o3d.utility.Vector3dVector(points_3d.T)
+
+#Save Point cloud
+o3d.io.write_point_cloud("/Users/kyo/Documents/projects/CVision/SfM/point_cloud/output.ply", pcd)
 
 o3d.visualization.draw_geometries([pcd])
 
+
+#Surface reconstruction

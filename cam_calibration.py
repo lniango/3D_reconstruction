@@ -1,7 +1,9 @@
 import cv2 
 import numpy as np
 import glob
+import os
 
+#def calib(path="/Users/kyo/Documents/projects/CVision/SfM/calibration", showPix=True):
 def calib(showPix=True):
     # corners of the square blocks (vertical and horizontal)
     Ch_Dim = (8, 6)
@@ -23,7 +25,8 @@ def calib(showPix=True):
     img_points_2D = []  # 2d points in image plane
 
 
-    image_files = glob.glob("/Users/kyo/Documents/projects/CVision/SfM/calibration/*.JPG")
+    #image_files = glob.glob(os.path.join(path, '/*.JPG'))
+    image_files = glob.glob("/Users/kyo/Documents/projects/CVision/SfM/Calibration2/*.JPG")
     print("Images trouvées :", len(image_files))
     img_size = None
     
