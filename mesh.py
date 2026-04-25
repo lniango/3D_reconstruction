@@ -10,7 +10,7 @@ def poisson_mesh(pcd):
         )
     )
 
-    pcd.orient_normals_consistent_tangent_plane(30)
+    pcd.orient_normals_consistent_tangent_plane(100)
 
     mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
         pcd,

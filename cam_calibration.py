@@ -47,7 +47,7 @@ def calib(folder_path, showPix=True):
             if showPix:    
                 #img_size = imgGRAY.shape[::-1] #sauvegarde la taille
                 img_corners = cv2.drawChessboardCorners(imgBGR, Ch_Dim, corners2, ret)
-                cv2.imwrite(f"calibration_corners/chessboard_{cnt}.jpg", img_corners)
+                #cv2.imwrite(f"calibration_corners/chessboard_{cnt}.jpg", img_corners)
                 cnt+=1
                 #cv2.imshow('Chessboard', img_corners)
                 #cv2.waitKey(50)

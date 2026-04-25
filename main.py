@@ -60,4 +60,8 @@ pcd = clean_pointcloud(pcd, pts1, pts2, img1)
 
 mesh = poisson_mesh(pcd)
 
-o3d.visualization.draw_geometries([mesh])
+mesh.paint_uniform_color([1, 0.706, 0]) #0.7, 0.7, 0.7
+mesh.compute_vertex_normals()
+
+o3d.visualization.draw_geometries([mesh]
+                                  ) #mesh_show_back_face=True
