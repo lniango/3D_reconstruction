@@ -1,40 +1,96 @@
-# 3D Structure from Motion (SfM)
+# Cell Segmentation & Tracking
 
-A Python pipeline for 3D reconstruction from 2D images using classical computer vision techniques. The pipeline covers camera calibration, keypoint detection and matching, essential matrix estimation, pose recovery, triangulation, and 3D point cloud visualization.
+A comparative study of **image segmentation methods** applied to the temporal tracking of HeLa cells (cervical cancer cell line) in microscopy images. The dataset comes from the [Cell Tracking Challenge](https://celltrackingchallenge.net/2d-datasets/) (`DIC-C2DH-HeLa`), a standard benchmark in bio-imaging.
 
----
-
-## Pipeline Overview
-
-```
-Images → Camera Calibration → Undistortion → Keypoint Matching → 
-Essential Matrix → Pose Recovery → Triangulation → 3D Point Cloud
-```
+The goal is to **segment cells frame by frame**, then **track them over time** by following their evolution across the image sequence.
 
 ---
 
-## Features
+## Context
 
-- **Camera calibration** using a chessboard pattern (OpenCV)
-- **Distortion correction** with optional optimal camera matrix
-- **Keypoint detection** with ORB and SIFT descriptors
-- **Feature matching** using Brute-Force matcher with Lowe's ratio test
-- **Essential matrix** estimation with RANSAC
-- **Camera pose recovery** (R, t) from matched points
-- **3D triangulation** and point cloud generation
-- **Point cloud visualization** and export (`.ply`) with Open3D
+DIC (Differential Interference Contrast) images are grayscale microscopy images where cells appear with low contrast and poorly defined boundaries. This makes it a challenging segmentation task, and motivates the comparison of multiple approaches — from classical image processing to deep learning.
+
+---
+
+## Segmentation Methods
+
+### 1. Binary Thresholding (`binary_seg`)
+The simplest approach: each pixel is classified as foreground or background based on a fixed intensity threshold (120). Fast but not robust to contrast variations across images.
+
+### 2. Canny Edge Detection (`canny_seg`)
+Cell boundaries are detected using the Canny filter, followed by binary hole filling (`binary_fill_holes`) to recover full cell regions. Works well on clean edges but remains sensitive to noise.
+
+### 3. Watershed Segmentation (`watershed_seg`)
+A region-growing approach: a gradient map is first computed using a Sobel filter, then seed markers are placed based on **adaptive thresholds derived from the dataset's mean and standard deviation** (computed in `help.py`). The Watershed algorithm then floods from these markers to delineate cell regions.
+
+```
+low_threshold  = mean - k * std
+high_threshold = mean + k * std
+```
+
+The parameter `k` controls sensitivity: a lower `k` gives tighter thresholds, a higher `k` is more permissive.
+
+### 4. U-Net (Deep Learning)
+A convolutional neural network trained **from scratch** on the HeLa dataset. U-Net is an encoder-decoder architecture with skip connections, originally designed for biomedical image segmentation. It predicts a binary mask for each image, separating cell pixels from the background.
+
+Unlike classical methods, U-Net learns visual features directly from annotated data, making it significantly more robust to contrast variations and irregular cell shapes.
+
+---
+
+## Overall Pipeline
+
+```
+Input .tif images (temporal sequence)
+        │
+        ▼
+Preprocessing (grayscale conversion, normalization)
+        │
+        ▼
+Segmentation (Binary / Canny / Watershed / U-Net)
+        │
+        ▼
+Binary masks per frame
+        │
+        ▼
+Temporal tracking (cell association across frames)
+```
+
+---
+
+## Multi-View 3D Reconstruction (Bonus)
+
+As a complementary experiment, a **multi-view 3D reconstruction pipeline** was developed to generate point clouds from 2D images using classical Structure from Motion (SfM) techniques. The pipeline covers camera calibration, feature extraction, pose estimation, and triangulation.
+
+> Full project: [github.com/lniango/3D_reconstruction](https://github.com/lniango/3D_reconstruction)
+
+**Pipeline:**
+```
+Images → Camera Calibration → Undistortion → Keypoint Matching (ORB/SIFT)
+       → Essential Matrix (RANSAC) → Pose Recovery (R, t)
+       → Triangulation → 3D Point Cloud (.ply)
+```
+
+**Result — tennis ball reconstructed from multiple views:**
+
+![Point cloud of a tennis ball generated with Open3D](point_cloud_ball.png)
+
+The point cloud is visualized with Open3D. The main blue cluster represents the ball surface, while the scattered colored points are outliers that can be filtered in post-processing.
 
 ---
 
 ## Project Structure
 
 ```
-.
-├── main.py               # Main pipeline
-├── cam_calibration.py    # Camera calibration module
-├── help.py               # Utility functions (grid overlay)
-├── environment.yml       # Conda environment
-└── README.md
+├── Seg_track.py          # Main script: classical segmentation methods
+├── segmentation.ipynb    # Notebook: U-Net implementation and training
+├── help.py               # Utilities: dataset mean and std computation
+├── DIC-C2DH-HeLa/
+│   ├── 01/               # Training image sequence (.tif)
+│   └── 01_GT/            # Ground truth segmentation masks
+└── output/
+    ├── binary-seg/
+    ├── canny_seg/
+    └── watershed_seg/
 ```
 
 ---
@@ -42,79 +98,28 @@ Essential Matrix → Pose Recovery → Triangulation → 3D Point Cloud
 ## Installation
 
 ```bash
-conda env create -f environment.yml
-conda activate 3d_geometry
+pip install opencv-python numpy pillow scikit-image scipy matplotlib torch torchvision open3d
 ```
 
 ---
 
 ## Usage
 
-### Calibrate camera only
-```bash
-python main.py -c
-```
-
-### Calibrate + apply optimal undistortion matrix
-```bash
-python main.py -c -o
-```
-
-### Run without calibration (uses approximate focal length)
-```bash
-python main.py
-```
-
----
-
-## Configuration
-
-Before running, update the hardcoded paths in `main.py` and `cam_calibration.py` to match your local setup:
-
 ```python
-# In main.py
-path1 = "/path/to/your/image1.JPG"
-path2 = "/path/to/your/image2.JPG"
-
-# In cam_calibration.py
-image_files = glob.glob("/path/to/calibration/images/*.JPG")
-param_path  = "/path/to/save/calibrated_data.npz"
+# Classical methods — in Seg_track.py
+binary_seg(nb=10)          # Binary thresholding on the first 10 images
+canny_seg(nb=10)           # Canny edge detection
+watershed_seg(nb=10, k=1)  # Watershed segmentation (k=1 recommended)
 ```
 
-### Chessboard settings (`cam_calibration.py`)
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `Ch_Dim`  | (8, 6)  | Inner corners (cols, rows) |
-| `Sq_size` | 24 mm   | Physical square size |
-
----
-
-## Output
-
-| File | Description |
-|------|-------------|
-| `calibrated_data.npz` | Camera matrix, distortion coefficients, R/T vectors |
-| `undistort_img1.jpg`  | Undistorted image |
-| `Original_grid.jpg`   | Original image with grid overlay |
-| `Undistorted_grid.jpg`| Undistorted image with grid overlay |
-| `output.ply`          | 3D point cloud (Open3D / MeshLab compatible) |
-
----
-
-## Dependencies
-
-Key libraries (see `environment.yml` for full list):
-
-- [OpenCV](https://opencv.org/) — image processing, calibration, feature detection
-- [Open3D](http://www.open3d.org/) — 3D point cloud processing and visualization
-- [NumPy](https://numpy.org/) — matrix operations
+For the U-Net, open and run `segmentation.ipynb`.
 
 ---
 
 ## References
 
-- [SfM tutorial — CMSC426](https://cmsc426.github.io/sfm/)
-- [Camera calibration — OpenCV docs](https://docs.opencv.org/4.x/dc/dbb/tutorial_py_calibration.html)
-- [SIFT descriptor — GeeksforGeeks](https://www.geeksforgeeks.org/sift-interest-point-detector-using-python-opencv/)
-- [ORB feature descriptor](https://github.com/ImranNawar/orb_feature_descriptor)
-- [3D SfM — ekrrems](https://github.com/ekrrems/3D-Structure-from-Motion)
+- Dataset: [Cell Tracking Challenge – DIC-C2DH-HeLa](https://celltrackingchallenge.net/2d-datasets/)
+- U-Net architecture: [Ronneberger et al., 2015](https://arxiv.org/abs/1505.04597)
+- [Segment and Track Anything](https://github.com/z-x-yang/Segment-and-Track-Anything)
+- [Seg2Track-SAM2](https://github.com/hcmr-lab/Seg2Track-SAM2)
+- [3D Reconstruction pipeline](https://github.com/lniango/3D_reconstruction)
