@@ -2,7 +2,7 @@ import open3d as o3d
 import numpy as np
 
 
-def create_pointcloud(points_3d):
+def create_pointcloud(points_3d, save_path="point_cloud/output_pc.ply"):
     pcd = o3d.geometry.PointCloud()
     
     if points_3d is None or len(points_3d) == 0:
@@ -34,7 +34,7 @@ def create_pointcloud(points_3d):
     pcd.points = o3d.utility.Vector3dVector(points_3d)
     
     # Display point cloud
-    o3d.io.write_point_cloud("point_cloud/output_pc.ply", pcd)
+    o3d.io.write_point_cloud(save_path, pcd)
 
     o3d.visualization.draw_geometries([pcd])
 

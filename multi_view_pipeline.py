@@ -276,7 +276,7 @@ def multi_view(images, K):
     # Transformation to world frame
     pts_world = points3D.T  # 3D Points camera i frame
     
-    pcd = create_pointcloud(pts_world)
+    pcd = create_pointcloud(pts_world, save_path="point_cloud/output_ball.ply")
     # Clean point cloud
     #pcd = clean_pointcloud(pcd, pts1, pts2, gray_images[0])
     return pcd
@@ -289,14 +289,29 @@ if __name__ == "__main__":
               "for_reconstruction/IMG_4156.JPG", "for_reconstruction/IMG_4157.JPG",
               "for_reconstruction/IMG_4158.JPG"]'''
         
-    images = ["for_reconstruction2/IMG_4159.JPG", "for_reconstruction2/IMG_4160.JPG",
+    '''images = ["for_reconstruction2/IMG_4159.JPG", "for_reconstruction2/IMG_4160.JPG",
                   "for_reconstruction2/IMG_4161.JPG", "for_reconstruction2/IMG_4162.JPG",
                   "for_reconstruction2/IMG_4163.JPG", "for_reconstruction2/IMG_4164.JPG",
                   "for_reconstruction2/IMG_4165.JPG", "for_reconstruction2/IMG_4166.JPG",
                   "for_reconstruction2/IMG_4167.JPG", "for_reconstruction2/IMG_4168.JPG",
                   "for_reconstruction2/IMG_4169.JPG", "for_reconstruction2/IMG_4170.JPG",
-                  "for_reconstruction2/IMG_4171.JPG"]
-    
+                  "for_reconstruction2/IMG_4171.JPG"]'''
+        
+    images = [
+            "for_reconstruction3/IMG_4175.JPG", "for_reconstruction3/IMG_4176.JPG", 
+            "for_reconstruction3/IMG_4177.JPG", "for_reconstruction3/IMG_4178.JPG", 
+            "for_reconstruction3/IMG_4179.JPG", "for_reconstruction3/IMG_4180.JPG", 
+            "for_reconstruction3/IMG_4181.JPG", "for_reconstruction3/IMG_4182.JPG", 
+            "for_reconstruction3/IMG_4183.JPG", "for_reconstruction3/IMG_4184.JPG", 
+            "for_reconstruction3/IMG_4185.JPG", "for_reconstruction3/IMG_4186.JPG", 
+            "for_reconstruction3/IMG_4187.JPG", "for_reconstruction3/IMG_4188.JPG", 
+            "for_reconstruction3/IMG_4189.JPG", "for_reconstruction3/IMG_4190.JPG", 
+            "for_reconstruction3/IMG_4191.JPG", "for_reconstruction3/IMG_4192.JPG", 
+            "for_reconstruction3/IMG_4193.JPG", "for_reconstruction3/IMG_4194.JPG", 
+            "for_reconstruction3/IMG_4195.JPG", "for_reconstruction3/IMG_4196.JPG", 
+            "for_reconstruction3/IMG_4197.JPG", "for_reconstruction3/IMG_4198.JPG", 
+            "for_reconstruction3/IMG_4199.JPG"
+        ]
     #Calibration: Choose a camera for calibration
     ret, K, dist = calib(folder_path="Calibration2")
     
