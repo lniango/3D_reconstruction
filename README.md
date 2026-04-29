@@ -83,19 +83,30 @@ python main.py
 
 ## Configuration
 
-Before running, update the hardcoded paths in `main.py` and `cam_calibration.py` to match your local setup:
+### Multi-view reconstruction (`main.py`)
+
+Update the `images` list with your input photos. The pipeline accepts **any number of views** — the more views, the denser the point cloud. Images should be taken by walking around the object with overlapping coverage.
 
 ```python
-# In main.py
-path1 = "/path/to/your/image1.JPG"
-path2 = "/path/to/your/image2.JPG"
+images = [
+    "for_reconstruction3/IMG_4175.JPG",
+    "for_reconstruction3/IMG_4176.JPG",
+    # ... add as many views as needed
+    "for_reconstruction3/IMG_4199.JPG"
+]
 
-# In cam_calibration.py
-image_files = glob.glob("/path/to/calibration/images/*.JPG")
-param_path  = "/path/to/save/calibrated_data.npz"
+ret, K, dist = calib(folder_path="Calibration2")  # Camera calibration
+all_pcd = multi_view(images, K)                    # Multi-view reconstruction
+mesh = poisson_mesh(all_pcd)                       # Poisson surface mesh
 ```
 
-### Chessboard settings (`cam_calibration.py`)
+The pipeline automatically:
+1. Extracts SIFT features from all views
+2. Selects the best initial pair (maximum Essential Matrix inliers, min. 50 matches)
+3. Triangulates the initial 3D point cloud
+4. Exports the result to `point_cloud/output_ball.ply`
+
+### Chessboard calibration settings (`cam_calibration.py`)
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `Ch_Dim`  | (8, 6)  | Inner corners (cols, rows) |
@@ -113,9 +124,9 @@ param_path  = "/path/to/save/calibrated_data.npz"
 | `Undistorted_grid.jpg`| Undistorted image with grid overlay |
 | `output.ply`          | 3D point cloud (Open3D / MeshLab compatible) |
 
-**Example result — tennis ball reconstructed from multiple views:**
+**Example result — basketball reconstructed from 25 views:**
 
-![Point cloud of a tennis ball visualized with Open3D](point_cloud_ball.png)
+![Point cloud of a basketball visualized with Open3D](point_cloud_ball.png)
 
 > The blue cluster represents the reconstructed ball surface. Scattered colored points are outliers that can be removed with statistical filtering in Open3D.
 
