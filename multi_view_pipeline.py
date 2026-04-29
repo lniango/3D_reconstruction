@@ -277,6 +277,8 @@ def multi_view(images, K):
     pts_world = points3D.T  # 3D Points camera i frame
     
     pcd = create_pointcloud(pts_world)
+    # Clean point cloud
+    #pcd = clean_pointcloud(pcd, pts1, pts2, gray_images[0])
     return pcd
             
 if __name__ == "__main__":

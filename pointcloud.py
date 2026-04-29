@@ -32,6 +32,11 @@ def create_pointcloud(points_3d):
     
     
     pcd.points = o3d.utility.Vector3dVector(points_3d)
+    
+    # Display point cloud
+    o3d.io.write_point_cloud("point_cloud/output_pc.ply", pcd)
+
+    o3d.visualization.draw_geometries([pcd])
 
     return pcd
 
