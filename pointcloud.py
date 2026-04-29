@@ -4,7 +4,34 @@ import numpy as np
 
 def create_pointcloud(points_3d):
     pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points_3d.T)
+    
+    if points_3d is None or len(points_3d) == 0:
+        print("Warning: No points to create pointcloud")
+        return pcd
+    
+    # Convert to numpy array 
+    points_3d = np.asarray(points_3d)
+    
+    # Verify the shape
+    print(f"Shape before fixing: {points_3d.shape}")
+    
+    # Case 1:  3xN, transpose to Nx3
+    if points_3d.shape[0] == 3 and len(points_3d.shape) == 2:
+        points_3d = points_3d.T
+    
+    # Case 2:  1xNx3 or another strange format
+    if len(points_3d.shape) == 3:
+        points_3d = points_3d.reshape(-1, 3)
+    
+    # Case 3: A 1D vector
+    if len(points_3d.shape) == 1:
+        points_3d = points_3d.reshape(-1, 3)
+    
+    # Case 4: float64
+    points_3d = points_3d.astype(np.float64)
+    
+    
+    pcd.points = o3d.utility.Vector3dVector(points_3d)
 
     return pcd
 

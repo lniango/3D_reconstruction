@@ -10,13 +10,13 @@ from pointcloud import create_pointcloud, clean_pointcloud
 from mesh import poisson_mesh
 
 
-img1 = cv.imread("ball1.JPG")
-img2 = cv.imread("ball2.JPG")
+img1 = cv.imread("build21.JPG")
+img2 = cv.imread("build22.JPG")
 
 gray1 = cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
 gray2 = cv.cvtColor(img2, cv.COLOR_BGR2GRAY)
 
-ret, K, dist = calib(folder_path="Calibration2")
+ret, K, dist = calib(folder_path="Calibration2", showPix=False)
 
 #distorsion correction
 # https://csundergrad.science.uoit.ca/courses/cv-notes/notebooks/02-camera-calibration.html
