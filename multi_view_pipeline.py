@@ -150,7 +150,7 @@ def sfm(image_paths, K):
     
     return create_pointcloud(points3D)
             
-            
+#https://arxiv.org/pdf/2204.12834            
 def bundle_adjustment(views, points3D, registered_indices):
     """Simplified Implementation of bundle adjustment"""
     # use scipy.optimize.least_squares
@@ -230,9 +230,41 @@ def bundle_adjustment(views, points3D, registered_indices):
     return all_pcd
 '''
 
-def multi_view(images, K):
-    # Select initial pair 
+def remove_outliers(points_3d, pts1, pts2, K, R, t, threshold=2.0):
+    """
+        Only keep points with small reprojection error
+        threshold: threshold in pixels
+    """
+    # Project 3D point into the 2 images
+    p1 = K @ np.hstack((np.eye(3), np.zeros((3, 1))))
+    p2 = K @ np.hstack((R, t.reshape(3, 1)))
     
+    # 3D homogene points
+    points_3d_hom = np.vstack((points_3d, np.ones((1, points_3d.shape[1]))))
+    
+    # Projection
+    pts1_proj = p1 @ points_3d_hom
+    pts2_proj = p2 @ points_3d_hom
+    
+    # Normalization
+    pts1_proj = pts1_proj[:2] / pts1_proj[2]
+    pts2_proj = pts2_proj[:2] / pts2_proj[2]
+    
+    # Compute errors
+    errors1 = np.linalg.norm(pts1.T - pts1_proj.T, axis=1)
+    errors2 = np.linalg.norm(pts2.T - pts2_proj.T, axis=1)
+    
+    # Filtering 
+    max_error = np.maximum(errors1, errors2)
+    inliers = max_error < threshold
+    
+    return points_3d[:, inliers], pts1[inliers], pts2[inliers]
+    
+    
+    
+
+def multi_view(images, K):
+    # Select initial pair  
     gray_images = [cv.cvtColor(cv.imread(img), cv.COLOR_BGR2GRAY) for img in images]
     kp_list = []
     desc_list = []
@@ -242,7 +274,7 @@ def multi_view(images, K):
         kp_list.append(kp)
         desc_list.append(desc)
     
-    # Trouver la meilleure paire initiale
+    # Find the best initial pair
     best_score = 0
     best_pair = None
     best_R, best_t = None, None
@@ -250,14 +282,16 @@ def multi_view(images, K):
     
     for i in range(len(images)):
         for j in range(i+1, len(images)):
+            print(f"PROCESSING frame {i} and {j} ..........")
             matches = match_sift(desc_list[i], desc_list[j])
+            # Select > 50 matching
             if len(matches) < 50:
                 continue
                 
             pts1, pts2 = extract_points(matches, kp_list[i], kp_list[j])
             
             # Epipolar geometry
-            E, mask = cv.findEssentialMat(pts1, pts2, K, cv.RANSAC, 0.999, 1.0)
+            E, mask = cv.findEssentialMat(pts1, pts2, K, cv.RANSAC, 0.999, 1.0) # Random Sampling Consensus
             _, R, t, mask_pose = cv.recoverPose(E, pts1, pts2, K)
             
             score = np.sum(mask_pose)
@@ -268,10 +302,12 @@ def multi_view(images, K):
                 best_pts1, best_pts2 = pts1[mask_pose.ravel() == 255], pts2[mask_pose.ravel() == 255]
     
     if best_pair is None:
-        raise ValueError("Aucune paire d'images valide trouvée")
+        raise ValueError("No valid pair found")
     
     # Initial Triangulation 
     points3D = triangulate_points(best_pts1, best_pts2, K, best_R, best_t)
+    
+
     
     # Transformation to world frame
     pts_world = points3D.T  # 3D Points camera i frame
