@@ -11,6 +11,8 @@ from triangulation import triangulate_points
 from pointcloud import create_pointcloud, clean_pointcloud
 from mesh import poisson_mesh
 
+from time import perf_counter 
+
 # Data structure for view
 class View:
     def __init__(self, image_path, K):
@@ -268,11 +270,18 @@ def multi_view(images, K):
     gray_images = [cv.cvtColor(cv.imread(img), cv.COLOR_BGR2GRAY) for img in images]
     kp_list = []
     desc_list = []
+    start = 0
+    end = 0
+    start_pc = 0
+    end_pc = 0
     
     for gray in gray_images:
+        start += perf_counter()
         kp, desc = detect_sift(gray)
+        end += perf_counter()
         kp_list.append(kp)
         desc_list.append(desc)
+    print(f"TIME to detect keypoints SIFT: {end - start}sec")
     
     # Find the best initial pair
     best_score = 0
@@ -305,9 +314,20 @@ def multi_view(images, K):
         raise ValueError("No valid pair found")
     
     # Initial Triangulation 
+    start_pc = perf_counter()
     points3D = triangulate_points(best_pts1, best_pts2, K, best_R, best_t)
+    end_pc = perf_counter()
+    print(f"TIME to triangulate {end_pc - start_pc}sec")
     
-
+    # Filter 3D points
+    depths = points3D[2, :]
+    mask_depth = depths > 0.1
+    points3D = points3D[:, mask_depth]
+    best_pts1_clean = best_pts1[mask_depth]
+    best_pts2_clean = best_pts2[mask_depth]
+    
+    # Reprojection error
+    points3D, best_pts1_clean, best_pts2_clean = remove_outliers(points3D, best_pts1_clean, best_pts2_clean, K, R, threshold=2)
     
     # Transformation to world frame
     pts_world = points3D.T  # 3D Points camera i frame
