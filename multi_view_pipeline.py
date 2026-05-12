@@ -252,13 +252,27 @@ def remove_outliers(points_3d, pts1, pts2, K, R, t, threshold=2.0):
     pts1_proj = pts1_proj[:2] / pts1_proj[2]
     pts2_proj = pts2_proj[:2] / pts2_proj[2]
     
+    pts1_proj = pts1_proj.T # (N, 2)
+    pts2_proj = pts2_proj.T # (N, 2)
+    
+    # Vérification des dimensions
+    print(f"pts1 shape: {pts1.shape}")
+    print(f"pts1_proj shape: {pts1_proj.shape}")
+    print(f"points_3d shape: {points_3d.shape}")
+    
     # Compute errors
-    errors1 = np.linalg.norm(pts1.T - pts1_proj.T, axis=1)
-    errors2 = np.linalg.norm(pts2.T - pts2_proj.T, axis=1)
+    errors1 = np.linalg.norm(pts1 - pts1_proj, axis=1) # (N,)
+    errors2 = np.linalg.norm(pts2 - pts2_proj, axis=1) # (N,)
+    
+    print(f"errors1 shape: {errors1.shape}")
+    print(f"errors2 shape: {errors2.shape}")
     
     # Filtering 
     max_error = np.maximum(errors1, errors2)
     inliers = max_error < threshold
+    
+    print(f"Inliers: {np.sum(inliers)}/{len(inliers)}")
+    print(f"Erreur moyenne (inliers): {np.mean(max_error[inliers]):.2f} px")
     
     return points_3d[:, inliers], pts1[inliers], pts2[inliers]
     
@@ -281,7 +295,7 @@ def multi_view(images, K):
         end += perf_counter()
         kp_list.append(kp)
         desc_list.append(desc)
-    print(f"TIME to detect keypoints SIFT: {end - start}sec")
+    print(f"TIME to detect keypoints SIFT: {(end - start) / 1e3}sec")
     
     # Find the best initial pair
     best_score = 0
@@ -314,10 +328,10 @@ def multi_view(images, K):
         raise ValueError("No valid pair found")
     
     # Initial Triangulation 
-    start_pc = perf_counter()
+    start_pc += perf_counter()
     points3D = triangulate_points(best_pts1, best_pts2, K, best_R, best_t)
-    end_pc = perf_counter()
-    print(f"TIME to triangulate {end_pc - start_pc}sec")
+    end_pc += perf_counter()
+    print(f"TIME to triangulate {(end_pc - start_pc) / 1e3}sec")
     
     # Filter 3D points
     depths = points3D[2, :]
@@ -327,7 +341,7 @@ def multi_view(images, K):
     best_pts2_clean = best_pts2[mask_depth]
     
     # Reprojection error
-    points3D, best_pts1_clean, best_pts2_clean = remove_outliers(points3D, best_pts1_clean, best_pts2_clean, K, R, threshold=2)
+    points3D, best_pts1_clean, best_pts2_clean = remove_outliers(points3D, best_pts1_clean, best_pts2_clean, K, best_R, best_t, threshold=2)
     
     # Transformation to world frame
     pts_world = points3D.T  # 3D Points camera i frame
@@ -339,11 +353,11 @@ def multi_view(images, K):
             
 if __name__ == "__main__":
     #Choose camera to calibrate among all cameras
-    '''images = ["for_reconstruction/IMG_4148.JPG", "for_reconstruction/IMG_4149.JPG",
+    images1 = ["for_reconstruction/IMG_4148.JPG", "for_reconstruction/IMG_4149.JPG",
               "for_reconstruction/IMG_4150.JPG", "for_reconstruction/IMG_4151.JPG",
               "for_reconstruction/IMG_4152.JPG", "for_reconstruction/IMG_4155.JPG",
               "for_reconstruction/IMG_4156.JPG", "for_reconstruction/IMG_4157.JPG",
-              "for_reconstruction/IMG_4158.JPG"]'''
+              "for_reconstruction/IMG_4158.JPG"]
         
     '''images = ["for_reconstruction2/IMG_4159.JPG", "for_reconstruction2/IMG_4160.JPG",
                   "for_reconstruction2/IMG_4161.JPG", "for_reconstruction2/IMG_4162.JPG",
@@ -371,7 +385,7 @@ if __name__ == "__main__":
     #Calibration: Choose a camera for calibration
     ret, K, dist = calib(folder_path="Calibration2")
     
-    all_pcd = multi_view(images, K)
+    all_pcd = multi_view(images1, K)
     mesh = poisson_mesh(all_pcd)
     
     mesh.paint_uniform_color([1, 0.706, 0]) #0.7, 0.7, 0.7
