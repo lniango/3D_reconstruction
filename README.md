@@ -126,7 +126,8 @@ The pipeline automatically:
 
 **Example result — basketball reconstructed from 25 views:**
 
-![Point cloud of a basketball visualized with Open3D](point_cloud_ball.png)
+
+![Point cloud of a basketball visualized with Open3D](output/recons_ball.png)
 
 > The blue cluster represents the reconstructed ball surface. Scattered colored points are outliers that can be removed with statistical filtering in Open3D.
 
