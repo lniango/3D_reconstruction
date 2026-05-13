@@ -12,6 +12,7 @@ from pointcloud import create_pointcloud, clean_pointcloud
 from mesh import poisson_mesh
 
 from time import perf_counter 
+from scipy.optimize import least_squares
 
 # Data structure for view
 class View:
@@ -151,24 +152,90 @@ def sfm(image_paths, K):
                 #    points3D = bundle_adjustment(views, points3D, registered)
     
     return create_pointcloud(points3D)
+
+
+def project(point3D, K, R, t):
+    # Camera frame
+    points_cam = (R @ point3D.T).T + t
+    proj = (K @ points_cam.T).T
+    
+    # homogene normalization
+    proj = proj[:, :2] / proj[:, 2:]
+    
+    return proj
+
+def residuals(params, K, pts1, pts2, n_points):
+    """
+    [rvec, t, points_3d]: params to optimize
+    """
+    rvec = params[:3]
+    t = params[3:6]
+    
+    points_3d = params[6:].reshape((n_points, 3))
+    
+    # Rodrigues -> rotation matrix
+    R, _ = cv.Rodrigues(rvec)
+    
+    # Projection caméra 1
+    # P1 = [I|0]
+    pts1_proj = project(
+        points_3d, 
+        K, 
+        np.eye(1), 
+        np.zeros(3))
+    
+    # Projection caméra 2
+    # P2 = [I|0]
+    pts2_proj = project(
+        points_3d, 
+        K, 
+        R, 
+        t)
+    
+    # Reprojection error
+    error1 = (pts1_proj - pts1).ravel()
+    error2 = (pts2_proj - pts2).ravel()
+    
+    return np.hstack((error1, error2))
+    
             
 # https://arxiv.org/pdf/2203.02311
 #https://arxiv.org/pdf/2204.12834            
-def bundle_adjustment(views, points3D, registered_indices):
+def bundle_adjustment(points_3d, pts1, pts2, K, R, t):
     """Simplified Implementation of bundle adjustment"""
-    # use scipy.optimize.least_squares
-    # or g2o (https://github.com/RainerKuemmerle/g2o)
-    from scipy.optimize import least_squares
     
-    def residuals(params):
-        # À implémenter : paramètres = poses + points 3D
-        # Retourner les erreurs de reprojection
-        pass
+    n_points = points_3d.shape[0]
     
-    # Configuration des paramètres
-    # ...
+    # Rotation Rodrigues
+    rvec, _ = cv.Rodrigues(R)
     
-    return points3D
+    # Initialization
+    x0 = np.hstack([
+        rvec.ravel(),
+        t.ravel(),
+        points_3d.ravel()
+    ])
+    
+    # Optimization
+    result = least_squares(residuals,
+                           x0, 
+                           method='trf',
+                           loss='huber',
+                           verbose=2,
+                           args=(K, pts1, pts2, n_points))
+    
+    # Results
+    params_opt = result.x
+
+    rvec_opt = params_opt[:3]
+    t_opt = params_opt[3:6]
+
+    points_3d_opt = params_opt[6:].reshape((n_points, 3))
+
+    R_opt, _ = cv.Rodrigues(rvec_opt)
+
+    return points_3d_opt, R_opt, t_opt
+
     
 
 #Sources: https://github.com/Abhishek-Aditya-bs/MultiView-3D-Reconstruction/blob/main/Reports/Final%20Paper.pdf
@@ -278,15 +345,6 @@ def remove_outliers(points_3d, pts1, pts2, K, R, t, threshold=2.0):
     return points_3d[:, inliers], pts1[inliers], pts2[inliers]
     
 
-def project(point3D, K, R, t):
-    # Camera frame
-    points_cam = (R @ point3D.T).T + t
-    proj = (K @ points_cam.T).T
-    
-    # homogene normalization
-    proj = proj[:, :2] / proj[:, 2:]
-    
-    return proj
 
 def multi_view(images, K):
     # Select initial pair  
