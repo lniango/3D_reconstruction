@@ -155,7 +155,11 @@ def sfm(image_paths, K):
 
 
 def project(point3D, K, R, t):
+    #print("points_3d shape:", point3D.shape)
+    #print("R shape:", R.shape)
+    #print("t shape:", t.shape)
     # Camera frame
+    t = t.ravel()
     points_cam = (R @ point3D.T).T + t
     proj = (K @ points_cam.T).T
     
@@ -168,7 +172,7 @@ def residuals(params, K, pts1, pts2, n_points):
     """
     [rvec, t, points_3d]: params to optimize
     """
-    rvec = params[:3]
+    rvec = params[:3].reshape(3, 1)
     t = params[3:6]
     
     points_3d = params[6:].reshape((n_points, 3))
@@ -181,7 +185,7 @@ def residuals(params, K, pts1, pts2, n_points):
     pts1_proj = project(
         points_3d, 
         K, 
-        np.eye(1), 
+        np.eye(3), 
         np.zeros(3))
     
     # Projection caméra 2
@@ -203,7 +207,8 @@ def residuals(params, K, pts1, pts2, n_points):
 #https://arxiv.org/pdf/2204.12834            
 def bundle_adjustment(points_3d, pts1, pts2, K, R, t):
     """Simplified Implementation of bundle adjustment"""
-    
+    #print(f"POINT3D shape: {points_3d.shape}")
+    points_3d = points_3d.T
     n_points = points_3d.shape[0]
     
     # Rotation Rodrigues
@@ -213,7 +218,7 @@ def bundle_adjustment(points_3d, pts1, pts2, K, R, t):
     x0 = np.hstack([
         rvec.ravel(),
         t.ravel(),
-        points_3d.ravel()
+        points_3d.ravel() # (3 * N)
     ])
     
     # Optimization
@@ -410,8 +415,11 @@ def multi_view(images, K):
     # Reprojection error
     points3D, best_pts1_clean, best_pts2_clean = remove_outliers(points3D, best_pts1_clean, best_pts2_clean, K, best_R, best_t, threshold=2)
     
+    # Bundle adjustment
+    points_3d_opt, R_opt, t_opt = bundle_adjustment(points3D, best_pts1_clean, best_pts2_clean, K, R, t)
+    
     # Transformation to world frame
-    pts_world = points3D.T  # 3D Points camera i frame
+    pts_world = points_3d_opt.T  # 3D Points camera i frame
     
     pcd = create_pointcloud(pts_world, save_path="point_cloud/output_ball.ply")
     # Clean point cloud
