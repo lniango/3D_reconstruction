@@ -152,6 +152,7 @@ def sfm(image_paths, K):
     
     return create_pointcloud(points3D)
             
+# https://arxiv.org/pdf/2203.02311
 #https://arxiv.org/pdf/2204.12834            
 def bundle_adjustment(views, points3D, registered_indices):
     """Simplified Implementation of bundle adjustment"""
@@ -276,8 +277,16 @@ def remove_outliers(points_3d, pts1, pts2, K, R, t, threshold=2.0):
     
     return points_3d[:, inliers], pts1[inliers], pts2[inliers]
     
+
+def project(point3D, K, R, t):
+    # Camera frame
+    points_cam = (R @ point3D.T).T + t
+    proj = (K @ points_cam.T).T
     
+    # homogene normalization
+    proj = proj[:, :2] / proj[:, 2:]
     
+    return proj
 
 def multi_view(images, K):
     # Select initial pair  
@@ -295,7 +304,7 @@ def multi_view(images, K):
         end += perf_counter()
         kp_list.append(kp)
         desc_list.append(desc)
-    print(f"TIME to detect keypoints SIFT: {(end - start) / 1e3}sec")
+    print(f"TIME to detect keypoints SIFT: {(end - start)}sec")
     
     # Find the best initial pair
     best_score = 0
@@ -314,7 +323,7 @@ def multi_view(images, K):
             pts1, pts2 = extract_points(matches, kp_list[i], kp_list[j])
             
             # Epipolar geometry
-            E, mask = cv.findEssentialMat(pts1, pts2, K, cv.RANSAC, 0.999, 1.0) # Random Sampling Consensus
+            E, mask = cv.findEssentialMat(pts1, pts2, K, cv.RANSAC, 0.999, 1.0) # Random Sampling Consensus: RANSAC - remove incompatible matching with epipolarity
             _, R, t, mask_pose = cv.recoverPose(E, pts1, pts2, K)
             
             score = np.sum(mask_pose)
@@ -331,7 +340,7 @@ def multi_view(images, K):
     start_pc += perf_counter()
     points3D = triangulate_points(best_pts1, best_pts2, K, best_R, best_t)
     end_pc += perf_counter()
-    print(f"TIME to triangulate {(end_pc - start_pc) / 1e3}sec")
+    print(f"TIME to triangulate {(end_pc - start_pc)}sec")
     
     # Filter 3D points
     depths = points3D[2, :]
