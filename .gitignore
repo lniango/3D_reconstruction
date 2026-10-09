@@ -1,8 +1,33 @@
-__pycache__
-/calibration
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Virtual environments
+env/
+venv/
+.venv/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+**/.DS_Store
+
+# Reconstruction datasets (too large for git, see README)
+for_reconstruction*/
 eiffel1.jpg
 eiffel2.jpg
 nz1.JPG
 nz2.JPG
-*.JPG
 calibration_corners/
+data/
+
+# Generated outputs
+output/*
+!output/recons_ball.png
+point_cloud/
+colmap_export/
+*.log
