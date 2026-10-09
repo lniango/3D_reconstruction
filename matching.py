@@ -1,21 +1,30 @@
 import cv2 as cv
 import numpy as np
 
-
-def match_sift(desc1, desc2, ratio=0.75):
-    matcher = cv.BFMatcher()
-    matches_knn = matcher.knnMatch(desc1, desc2, k=2)
-    good_matches = []
-
-    for m, n in matches_knn:
-        if m.distance < ratio * n.distance:
-            good_matches.append(m)
-
-    return good_matches
+_FLANN_INDEX_KDTREE = 1
 
 
-def extract_points(matches, kp1, kp2):
-    pts1 = np.float32([kp1[m.queryIdx].pt for m in matches])
-    pts2 = np.float32([kp2[m.trainIdx].pt for m in matches])
+def _knn(desc_query, desc_train, k=2):
+    if len(desc_query) < k or len(desc_train) < k:
+        return []
+    matcher = cv.FlannBasedMatcher(dict(algorithm=_FLANN_INDEX_KDTREE, trees=5), dict(checks=64))
+    return matcher.knnMatch(desc_query, desc_train, k=k)
 
-    return pts1, pts2
+
+def match_descriptors(desc1, desc2, ratio=0.8, mutual=True):
+    """Lowe ratio test, optionally keeping only mutual nearest neighbours.
+
+    Returns an (M, 2) int array of (index in desc1, index in desc2).
+    """
+    forward = {}
+    for pair in _knn(desc1, desc2):
+        if len(pair) == 2 and pair[0].distance < ratio * pair[1].distance:
+            forward[pair[0].queryIdx] = pair[0].trainIdx
+    if not forward:
+        return np.zeros((0, 2), dtype=int)
+
+    if mutual:
+        backward = {pair[0].queryIdx: pair[0].trainIdx for pair in _knn(desc2, desc1) if pair}
+        forward = {i: j for i, j in forward.items() if backward.get(j) == i}
+
+    return np.array(sorted(forward.items()), dtype=int).reshape(-1, 2)
