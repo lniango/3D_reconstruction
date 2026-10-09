@@ -108,8 +108,8 @@ def bundle_adjustment(cam_params, points, cam_idx, pt_idx, uv, K, fixed_cams=(0,
     cams, pts = unpack(result.x)
     r1 = result.fun[:2 * n_obs]
     info = {
-        "initial_rms": float(np.sqrt(np.mean(r0 ** 2))),
-        "final_rms": float(np.sqrt(np.mean(r1 ** 2))),
+        "initial_rms": float(np.sqrt(np.mean(np.sum(r0.reshape(-1, 2) ** 2, axis=1)))),
+        "final_rms": float(np.sqrt(np.mean(np.sum(r1.reshape(-1, 2) ** 2, axis=1)))),
         "nfev": int(result.nfev),
     }
     return cams, pts, info

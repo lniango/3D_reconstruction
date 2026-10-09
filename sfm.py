@@ -27,7 +27,7 @@ from triangulation import (depths, reprojection_errors, triangulate_points,
 class SfMOptions:
     ratio: float = 0.8                 # Lowe ratio test
     essential_threshold: float = 2.0   # px, RANSAC threshold for the essential matrix
-    min_pair_inliers: int = 50         # verified matches needed to link two images
+    min_pair_inliers: int = 30         # verified matches needed to link two images
     init_max_homography_ratio: float = 0.8
     init_min_median_angle: float = 3.0  # degrees
     init_candidates: int = 30

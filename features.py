@@ -18,8 +18,8 @@ class ViewFeatures:
     path: str = None
 
 
-def detect_sift(gray, max_features=0):
-    sift = cv.SIFT_create(nfeatures=max_features)
+def detect_sift(gray, max_features=0, contrast_threshold=0.04):
+    sift = cv.SIFT_create(nfeatures=max_features, contrastThreshold=contrast_threshold)
     kp, desc = sift.detectAndCompute(gray, None)
     return kp, desc
 
@@ -37,8 +37,11 @@ def sample_colors(image_bgr, points):
     return image_bgr[y, x][:, ::-1].copy()
 
 
-def extract_features(image_path, max_size=2000, max_features=10000):
-    """SIFT features of one image, optionally downscaled so that max(width, height) <= max_size."""
+def extract_features(image_path, max_size=2000, max_features=10000, contrast_threshold=0.04):
+    """SIFT features of one image, optionally downscaled so that max(width, height) <= max_size.
+
+    Lower contrast_threshold (e.g. 0.01) yields more keypoints on weakly textured objects.
+    """
     image = read_image(image_path)
     h, w = image.shape[:2]
     scale = 1.0
@@ -47,7 +50,7 @@ def extract_features(image_path, max_size=2000, max_features=10000):
         image = cv.resize(image, (round(w * scale), round(h * scale)), interpolation=cv.INTER_AREA)
 
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-    kp, desc = detect_sift(gray, max_features)
+    kp, desc = detect_sift(gray, max_features, contrast_threshold)
     if desc is None:
         kp, desc = [], np.zeros((0, 128), np.float32)
     points = np.array([k.pt for k in kp], dtype=np.float64).reshape(-1, 2)

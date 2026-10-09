@@ -24,6 +24,12 @@ def parse_args():
     parser.add_argument("--max-size", type=int, default=2000,
                         help="downscale images so that max(width, height) <= this (0: full resolution)")
     parser.add_argument("--max-features", type=int, default=10000)
+    parser.add_argument("--sift-contrast", type=float, default=0.04,
+                        help="SIFT contrast threshold, lower (0.01) for weakly textured objects")
+    parser.add_argument("--min-pair-inliers", type=int, default=30,
+                        help="verified matches needed to link two images")
+    parser.add_argument("--min-pnp-inliers", type=int, default=30,
+                        help="2D-3D inliers needed to register an image")
     parser.add_argument("--ba-every", type=int, default=3, help="global bundle adjustment frequency")
     parser.add_argument("--min-angle", type=float, default=1.5,
                         help="minimum triangulation angle in degrees (lower keeps noisier, distant points)")
@@ -50,7 +56,7 @@ def main():
                               square_size=args.square_size)
 
     start = perf_counter()
-    views = [extract_features(p, args.max_size, args.max_features) for p in image_paths]
+    views = [extract_features(p, args.max_size, args.max_features, args.sift_contrast) for p in image_paths]
     print(f"SIFT on {len(views)} images: {sum(len(v.keypoints) for v in views)} keypoints "
           f"in {perf_counter() - start:.1f}s")
 
@@ -62,6 +68,7 @@ def main():
     K = scale_intrinsics(K_original, views[0].scale)
 
     options = SfMOptions(ba_every=args.ba_every, min_triangulation_angle=args.min_angle,
+                         min_pair_inliers=args.min_pair_inliers, min_pnp_inliers=args.min_pnp_inliers,
                          init_min_median_angle=max(args.min_angle, 3.0))
     recon = run_sfm(views, K, calib.dist, options)
     print(f"Final reprojection RMS: {recon.reprojection_rms():.2f} px "
