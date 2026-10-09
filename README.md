@@ -74,6 +74,9 @@ chessboard pictures of `--calib-dir` (default `Calibration2`) are used and the r
 | `--recalibrate` | | Ignore the existing calibration file |
 | `--max-size` | `2000` | Downscale images for processing (`0` = full resolution) |
 | `--min-angle` | `1.5` | Minimum triangulation angle (degrees) |
+| `--sift-contrast` | `0.04` | SIFT contrast threshold, lower (`0.01`) for weakly textured objects |
+| `--min-pair-inliers` | `30` | Verified matches needed to link two images |
+| `--min-pnp-inliers` | `30` | 2D-3D inliers needed to register an image |
 | `--ba-every` | `3` | Global bundle adjustment every N registered images |
 | `--out` | `output` | Output folder |
 | `--mesh` | | Build a Poisson mesh (`mesh.ply`) |
@@ -108,6 +111,33 @@ COLMAP reads text models from a folder containing `cameras.txt`, `images.txt` an
 
 ---
 
+## Benchmark on public data
+
+`benchmarks/middlebury.py` downloads a [Middlebury multi-view dataset](https://vision.middlebury.edu/mview/data/)
+(640×480 images with ground-truth cameras), runs the pipeline and aligns the estimated cameras to
+the ground truth with a similarity transform.
+
+```bash
+python benchmarks/middlebury.py templeRing
+python benchmarks/middlebury.py dinoRing --sift-contrast 0.01 --min-pnp-inliers 15
+```
+
+| Dataset | Registered | Points | Reproj. RMS | Camera center error (mean / max) | Rotation error (mean / max) |
+|---|---|---|---|---|---|
+| templeRing | 47/47 | 7002 | 0.45 px | 1.2 mm / 2.9 mm (0.5% of ring radius) | 0.19° / 0.41° |
+| dinoRing | 48/48 | 2845 | 0.81 px | 5.3 mm / 11.7 mm (1.9% of ring radius) | 0.71° / 1.09° |
+
+The dinosaur is almost textureless: with default SIFT settings it gets ~150 keypoints per image and
+the chain of views breaks; a lower contrast threshold and PnP threshold register all views.
+
+templeRing sparse cloud, Poisson mesh and recovered camera ring:
+
+![templeRing sparse cloud](docs/temple_cloud.png)
+
+<img src="docs/temple_mesh.png" width="400"/> <img src="docs/temple_cameras.png" width="400"/>
+
+---
+
 ## Calibration (`cam_calibration.py`)
 
 - Chessboard corners are detected on a downscaled copy and refined at full resolution.
@@ -136,6 +166,8 @@ autofocus changes or a non-flat board rather than a few bad pictures.
 ├── pointcloud.py         # Open3D point cloud helpers
 ├── mesh.py               # Poisson meshing
 ├── export.py             # COLMAP text export
+├── evaluation.py         # Similarity alignment and pose errors against ground truth
+├── benchmarks/           # Middlebury benchmark script
 ├── help.py               # Grid drawing helper (undistortion check)
 └── tests/                # Synthetic tests (known cameras and scene)
 ```
