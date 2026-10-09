@@ -2,6 +2,7 @@
 import cv2 as cv
 import numpy as np
 
+from evaluation import rotation_angle_deg, umeyama  # noqa: F401 (re-exported for tests)
 from features import ViewFeatures
 
 IMAGE_SIZE = (1000, 750)
@@ -71,20 +72,3 @@ def make_views(points, normals, poses, rng, noise_px=0.5, n_clutter=200, dist=DI
             colors=colors, image_size=IMAGE_SIZE))
         gt_ids.append(ids[order])
     return views, gt_ids
-
-
-def umeyama(src, dst):
-    """Similarity (s, R, t) minimizing |dst - (s R src + t)|."""
-    mu_s, mu_d = src.mean(0), dst.mean(0)
-    xs, xd = src - mu_s, dst - mu_d
-    U, S, Vt = np.linalg.svd(xd.T @ xs / len(src))
-    D = np.eye(3)
-    if np.linalg.det(U) * np.linalg.det(Vt) < 0:
-        D[2, 2] = -1
-    R = U @ D @ Vt
-    s = np.trace(np.diag(S) @ D) / np.mean(np.sum(xs ** 2, axis=1))
-    return s, R, mu_d - s * R @ mu_s
-
-
-def rotation_angle_deg(R):
-    return np.degrees(np.arccos(np.clip((np.trace(R) - 1) / 2, -1, 1)))
