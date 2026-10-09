@@ -54,6 +54,46 @@ def test_initial_pair_avoids_small_baseline():
     assert len(recon.poses) == 4
 
 
+def test_colmap_export_reprojects_in_original_images(tmp_path):
+    import cv2
+    from scipy.spatial.transform import Rotation
+
+    from cam_calibration import scale_intrinsics
+    from export import export_colmap
+    from features import ViewFeatures
+
+    rng = np.random.default_rng(4)
+    points, normals = sphere_points(800, rng)
+    poses = circle_cameras([0, 15, 30])
+    views, _ = make_views(points, normals, poses, rng, noise_px=0.3)
+    scale = 0.5
+    small = [ViewFeatures(name=v.name, keypoints=(v.keypoints + 0.5) * scale - 0.5,
+                          descriptors=v.descriptors, colors=v.colors,
+                          image_size=(v.image_size[0] // 2, v.image_size[1] // 2), scale=scale)
+             for v in views]
+    recon = run_sfm(small, scale_intrinsics(K, scale), DIST, SfMOptions(verbose=False))
+    export_colmap(recon, K, DIST, views[0].image_size, str(tmp_path))
+
+    xyz = {}
+    for line in open(tmp_path / "points3D.txt"):
+        if not line.startswith("#"):
+            f = line.split()
+            xyz[int(f[0])] = np.array(f[1:4], dtype=float)
+    lines = [l for l in open(tmp_path / "images.txt") if not l.startswith("#")]
+    errors = []
+    for header, obs in zip(lines[0::2], lines[1::2]):
+        f = header.split()
+        qw, qx, qy, qz = map(float, f[1:5])
+        R = Rotation.from_quat([qx, qy, qz, qw]).as_matrix()
+        t = np.array(f[5:8], dtype=float)
+        o = np.array(obs.split(), dtype=float).reshape(-1, 3)
+        o = o[o[:, 2] > 0]
+        X = np.array([xyz[int(i)] for i in o[:, 2]])
+        proj, _ = cv2.projectPoints(X, cv2.Rodrigues(R)[0], t, K, DIST)
+        errors.append(np.linalg.norm(proj.reshape(-1, 2) - o[:, :2], axis=1))
+    assert np.median(np.concatenate(errors)) < 1.0
+
+
 def _alignment_errors(recon, poses):
     views, est, gt = _gt_and_estimated_centers(recon, poses)
     s, R_align, t_align = umeyama(est, gt)
